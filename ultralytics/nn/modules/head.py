@@ -1021,9 +1021,13 @@ class YOLOEDetect(Detect):
             )
         )
         self.cv4 = nn.ModuleList(BNContrastiveHead(embed) if with_bn else ContrastiveHead() for _ in ch)
+        self.cv4_vp=nn.ModuleList(BNContrastiveHead(embed) if with_bn else ContrastiveHead() for _ in ch)
         if end2end:
             self.one2one_cv3 = copy.deepcopy(self.cv3)  # overwrite with new cv3
             self.one2one_cv4 = copy.deepcopy(self.cv4)
+            self.one2one_cv4_vp = copy.deepcopy(self.cv4_vp)
+
+        self._use_cv4_vp=True
 
         self.reprta = Residual(SwiGLUFFN(embed, embed))
         self.savpe = SAVPE(ch, c3, embed)
@@ -1137,12 +1141,15 @@ class YOLOEDetect(Detect):
     @property
     def one2many(self):
         """Returns the one-to-many head components, here for v3/v5/v8/v9/v11 backward compatibility."""
-        return dict(box_head=self.cv2, cls_head=self.cv3, contrastive_head=self.cv4)
+        cv4= self.cv4_vp if hasattr(self, "cv4_vp") and self._use_cv4_vp else self.cv4
+        return dict(box_head=self.cv2, cls_head=self.cv3, contrastive_head=cv4)
 
     @property
     def one2one(self):
         """Returns the one-to-one head components."""
-        return dict(box_head=self.one2one_cv2, cls_head=self.one2one_cv3, contrastive_head=self.one2one_cv4)
+        one2one_cv4= self.one2one_cv4_vp if hasattr(self, "one2one_cv4_vp") and self._use_cv4_vp else self.one2one_cv4
+        
+        return dict(box_head=self.one2one_cv2, cls_head=self.one2one_cv3, contrastive_head=one2one_cv4)
 
     def forward_head(self, x, box_head, cls_head, contrastive_head):
         """Concatenates and returns predicted bounding boxes, class probabilities, and contrastive scores."""
