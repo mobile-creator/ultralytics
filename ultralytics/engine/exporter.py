@@ -913,6 +913,7 @@ class Exporter:
     @try_export
     def export_saved_model(self, prefix=colorstr("TensorFlow SavedModel:")):
         """Export YOLO model to TensorFlow SavedModel format."""
+        assert not (MACOS and IS_PYTHON_3_13), "TensorFlow exports not supported on Python>=3.13 with MacOS."
         cuda = torch.cuda.is_available()
         try:
             import tensorflow as tf
@@ -1105,6 +1106,7 @@ class Exporter:
     @try_export
     def export_tfjs(self, prefix=colorstr("TensorFlow.js:")):
         """Export YOLO model to TensorFlow.js format."""
+        assert not IS_PYTHON_3_13, "TensorFlow.js export not support on Python>=3.13."
         check_requirements("tensorflowjs")
         from ultralytics.utils.export.tensorflow import pb2tfjs
 

@@ -210,28 +210,8 @@ def pb2tfjs(pb_file: str, output_dir: str, half: bool = False, int8: bool = Fals
         Requires tensorflowjs package. Uses tensorflowjs_converter command-line tool for conversion.
         Handles spaces in file paths and warns if output directory contains spaces.
     """
-    import inspect
-    import pathlib
-    import subprocess
-
     import tensorflow as tf
     import tensorflowjs as tfjs
-    import tensorflowjs.read_weights as _rw
-
-    _path = pathlib.Path(inspect.getfile(_rw))
-    _path.write_text(
-        _path.read_text()
-        .replace("np.object", "object")
-        .replace("np.bool", "bool")
-        .replace("np.int", "int")
-        .replace("np.float", "float")
-        .replace("np.complex", "complex")
-        .replace("np.str", "str")
-    )
-
-    # Delete all .pyc caches for this file
-    for pyc in _path.parent.joinpath("__pycache__").glob(f"{_path.stem}.*.pyc"):
-        pyc.unlink()
 
     LOGGER.info(f"\n{prefix} starting export with tensorflowjs {tfjs.__version__}...")
 
