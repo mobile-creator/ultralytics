@@ -109,7 +109,7 @@ class ReidTrainer(BaseTrainer):
         Returns:
             (ReidDataset): Dataset for the specified split.
         """
-        return ReidDataset(root=img_path, args=self.args, augment=mode == "train", prefix=mode)
+        return ReidDataset(root=img_path, args=self.args, augment=mode == "train", prefix=mode, data=self.data)
 
     def get_dataloader(self, dataset_path: str, batch_size: int = 16, rank: int = 0, mode: str = "train"):
         """Return dataloader with PK sampling for training.

@@ -836,10 +836,17 @@ class ClassificationDataset:
 
 
 class ReidDataset:
-    """Dataset class for person re-identification tasks on Market-1501.
+    """Dataset class for person re-identification tasks.
 
-    Parses Market-1501 filename convention: `0001_c1s1_000151_01.jpg` -> pid=1, camid=0.
-    Skips junk images (pid < 0) and distractors (pid == 0).
+    Supports multiple ReID dataset formats via configurable filename regex patterns.
+    The regex must have two capture groups: group(1) = person ID, group(2) = camera ID.
+
+    Built-in patterns:
+        - Market-1501: ``0001_c1s1_000151_01.jpg`` -> pid=1, camid=0
+        - DukeMTMC-reID: ``0001_c1_f0046182.jpg`` -> pid=1, camid=0
+        - MSMT17: ``0001_015_01_0201130904.jpg`` -> pid=1, camid=14
+
+    Skips junk images (pid < 0) and distractors (pid == 0) during training.
 
     Attributes:
         samples (list): List of (path, pid, camid) tuples.
@@ -849,7 +856,14 @@ class ReidDataset:
         prefix (str): Prefix for logging.
     """
 
-    def __init__(self, root: str, args, augment: bool = False, prefix: str = ""):
+    # Default filename patterns for common ReID datasets (group1=pid, group2=camid)
+    PATTERNS = {
+        "market1501": r"(-?\d+)_c(\d+)s\d+_\d+_\d+\.(?:jpg|png|bmp)",
+        "dukemtmc": r"(\d+)_c(\d+)_f\d+\.(?:jpg|png|bmp)",
+        "msmt17": r"(\d+)_(\d+)_\d+_\d+\.(?:jpg|png|bmp)",
+    }
+
+    def __init__(self, root: str, args, augment: bool = False, prefix: str = "", data: dict | None = None):
         """Initialize ReidDataset.
 
         Args:
@@ -857,6 +871,9 @@ class ReidDataset:
             args (Namespace): Configuration containing image size, augmentation parameters.
             augment (bool): Whether to apply augmentations.
             prefix (str): Prefix for logging.
+            data (dict, optional): Dataset YAML config with optional 'filename_re' (regex string or
+                preset name like 'market1501', 'dukemtmc', 'msmt17') and 'cam_0indexed' (bool,
+                whether camera IDs are already 0-indexed, default False).
         """
         import re as _re
 
@@ -869,8 +886,13 @@ class ReidDataset:
         if not root_path.exists():
             raise FileNotFoundError(f"ReID dataset path not found: {root}")
 
-        # Parse Market-1501 filenames
-        pattern = _re.compile(r"(-?\d+)_c(\d+)s\d+_\d+_\d+\.(?:jpg|png|bmp)", _re.IGNORECASE)
+        # Determine filename regex pattern
+        data = data or {}
+        re_str = data.get("filename_re", "market1501")
+        re_str = self.PATTERNS.get(re_str, re_str)  # resolve preset name or use as-is
+        pattern = _re.compile(re_str, _re.IGNORECASE)
+        cam_offset = 0 if data.get("cam_0indexed", False) else -1  # convert to 0-indexed
+
         raw_pids = set()
 
         for img_path in sorted(root_path.glob("*.jpg")) + sorted(root_path.glob("*.png")):
@@ -878,13 +900,11 @@ class ReidDataset:
             if match is None:
                 continue
             pid = int(match.group(1))
-            camid = int(match.group(2)) - 1  # 0-indexed
+            camid = int(match.group(2)) + cam_offset
             if pid < 0:  # junk images
                 continue
-            if pid == 0 and not augment:  # distractors only skipped in train
-                # Actually, for gallery we keep pid==0 as distractors
-                # But for query we skip them. Keep all for now, filter in val.
-                pass
+            if pid == 0 and not augment:
+                pass  # keep distractors for gallery; filtered in val
             raw_pids.add(pid)
             self.samples.append((str(img_path), pid, camid))
 

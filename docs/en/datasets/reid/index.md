@@ -1,7 +1,7 @@
 ---
 comments: true
 description: Learn how to structure datasets for YOLO ReID tasks. Detailed folder structure, naming conventions, and usage examples for person re-identification training.
-keywords: YOLO, person re-identification, ReID, dataset structure, Market-1501, Ultralytics, metric learning, training data
+keywords: YOLO, person re-identification, ReID, dataset structure, Market-1501, DukeMTMC, MSMT17, Ultralytics, metric learning, training data
 ---
 
 # ReID Datasets Overview
@@ -12,18 +12,15 @@ For [Ultralytics](https://www.ultralytics.com/) YOLO re-identification tasks, th
 
 ### Image Naming Convention
 
-ReID datasets use a filename convention that encodes person identity (PID) and camera ID (CamID):
+ReID datasets encode person identity (PID) and camera ID (CamID) in filenames. Different datasets use different naming conventions:
 
-```
-PPPP_cCsSXXX_XXXXXX.jpg
-```
+| Dataset | Pattern | Example |
+|---------|---------|---------|
+| [Market-1501](market1501.md) | `PPPP_cCsS_XXXXXX_XX.jpg` | `0001_c1s1_001051_00.jpg` |
+| [DukeMTMC-reID](dukemtmc.md) | `PPPP_cC_fXXXXXX.jpg` | `0001_c1_f0046182.jpg` |
+| [MSMT17](msmt17.md) | `PPPP_CCC_II_XXXX.jpg` | `0001_015_01_0201130904.jpg` |
 
-- `PPPP`: Person ID (e.g., `0001`, `0002`)
-- `C`: Camera ID (e.g., `1` through `6`)
-- `S`: Sequence number
-- `XXXXXX`: Frame number
-
-For example, `0001_c1s1_001051_00.jpg` means person `0001` captured by camera `1`.
+Each format encodes person ID and camera ID differently, but the YOLO ReID pipeline handles them automatically via the `filename_re` setting in the dataset YAML config.
 
 ### Folder Structure Example
 
@@ -52,7 +49,7 @@ Market-1501-v15.09.15/
 
 ### Dataset YAML Format
 
-A ReID dataset YAML config specifies the root path, split directories, and number of training identities:
+A ReID dataset YAML config specifies the root path, split directories, number of training identities, and filename parsing:
 
 ```yaml
 path: Market-1501-v15.09.15  # dataset root dir
@@ -61,6 +58,12 @@ val: query                    # query images for evaluation
 gallery: bounding_box_test    # gallery images for evaluation
 
 nc: 751  # number of training identities
+
+# Optional: filename parsing (defaults to 'market1501')
+# Built-in presets: 'market1501', 'dukemtmc', 'msmt17'
+# Or provide a custom regex with group(1)=pid, group(2)=camid
+filename_re: market1501
+cam_0indexed: false  # set true if camera IDs start at 0
 ```
 
 !!! note
@@ -94,7 +97,20 @@ To train a YOLO ReID model on a dataset, you can use the following code snippets
 
 ## Supported Datasets
 
-- [Market-1501](market1501.md) - The most widely used ReID benchmark with 751 training identities from 6 cameras.
+| Dataset | Images | IDs | Cameras | Difficulty |
+|---------|--------|-----|---------|------------|
+| [Market-1501](market1501.md) | 32,668 | 1,501 | 6 | Moderate |
+| [DukeMTMC-reID](dukemtmc.md) | 36,411 | 1,404 | 8 | Moderate-Hard |
+| [MSMT17](msmt17.md) | 126,441 | 4,101 | 15 | Hard |
+
+### Benchmark Results
+
+YOLO26 ReID results across datasets (60 epochs, SGD, imgsz=256):
+
+| Model | Market-1501<br>mAP / R-1 | DukeMTMC-reID<br>mAP / R-1 |
+|-------|-------------------------|-----------------------------|
+| YOLO26n-reid | 23.7 / 42.5 | 16.4 / 30.5 |
+| YOLO26s-reid | 29.4 / 50.4 | 16.9 / 30.7 |
 
 ## FAQ
 
@@ -113,4 +129,4 @@ Classification datasets organize images into class subdirectories (e.g., `cat/`,
 
 ### Can I use custom ReID datasets with YOLO?
 
-Yes. Create a YAML config file with `path`, `train`, `val`, `gallery`, and `nc` fields pointing to your dataset. Images must follow the `PPPP_cCsSXXX_XXXXXX.jpg` naming convention so that person IDs and camera IDs can be parsed.
+Yes. Create a YAML config file with `path`, `train`, `val`, `gallery`, and `nc` fields pointing to your dataset. Use one of the built-in filename presets (`market1501`, `dukemtmc`, `msmt17`) via `filename_re`, or provide a custom regex pattern with two capture groups: group(1) for person ID and group(2) for camera ID. Set `cam_0indexed: true` if your camera IDs start at 0.

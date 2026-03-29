@@ -148,7 +148,7 @@ class ReidValidator(BaseValidator):
         Returns:
             Tuple of (features, pids, camids) as numpy arrays.
         """
-        dataset = ReidDataset(root=gallery_path, args=self.args, augment=False, prefix="gallery")
+        dataset = ReidDataset(root=gallery_path, args=self.args, augment=False, prefix="gallery", data=self.data)
         loader = build_dataloader(dataset, self.args.batch, self.args.workers, rank=-1)
 
         tta = getattr(self.args, "reid_tta", False)
@@ -199,7 +199,7 @@ class ReidValidator(BaseValidator):
 
     def build_dataset(self, img_path: str) -> ReidDataset:
         """Create a ReidDataset instance for validation."""
-        return ReidDataset(root=img_path, args=self.args, augment=False, prefix="query")
+        return ReidDataset(root=img_path, args=self.args, augment=False, prefix="query", data=self.data)
 
     def get_dataloader(self, dataset_path: str | Path, batch_size: int) -> torch.utils.data.DataLoader:
         """Build dataloader for validation.

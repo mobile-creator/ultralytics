@@ -15,18 +15,18 @@ The output of a ReID model is a fixed-dimensional embedding vector. Two images o
 
 !!! tip
 
-    YOLO26 ReID models use the `-reid` suffix, i.e., `yolo26n-reid.pt`, and are trained on [Market-1501](https://github.com/ultralytics/ultralytics/blob/main/ultralytics/cfg/datasets/Market-1501.yaml).
+    YOLO26 ReID models use the `-reid` suffix, i.e., `yolo26n-reid.pt`, and support [Market-1501](https://github.com/ultralytics/ultralytics/blob/main/ultralytics/cfg/datasets/Market-1501.yaml), [DukeMTMC-reID](https://github.com/ultralytics/ultralytics/blob/main/ultralytics/cfg/datasets/DukeMTMC-reID.yaml), and [MSMT17](https://github.com/ultralytics/ultralytics/blob/main/ultralytics/cfg/datasets/MSMT17.yaml) datasets.
 
 ## [Models](https://github.com/ultralytics/ultralytics/tree/main/ultralytics/cfg/models/26)
 
 YOLO26 ReID models are available in multiple sizes. All models use a BNNeck architecture with PK batch sampling and multi-loss training (cross-entropy + triplet + optional center/supcon losses).
 
-| Model                                                                                    | size<br><sup>(pixels) | mAP<br><sup>Market-1501 | Rank-1<br><sup>Market-1501 | params<br><sup>(M) | FLOPs<br><sup>(B) |
-| ---------------------------------------------------------------------------------------- | --------------------- | ----------------------- | -------------------------- | ------------------- | ------------------ |
-| [YOLO26n-reid](https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo26n-reid.pt) | 256                   | -                       | -                          | 2.0                 | 3.3                |
-| [YOLO26s-reid](https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo26s-reid.pt) | 256                   | -                       | -                          | 6.5                 | 12.7               |
+| Model                                                                                    | size<br><sup>(pixels) | mAP<br><sup>Market-1501 | Rank-1<br><sup>Market-1501 | mAP<br><sup>DukeMTMC | Rank-1<br><sup>DukeMTMC | params<br><sup>(M) | FLOPs<br><sup>(B) |
+| ---------------------------------------------------------------------------------------- | --------------------- | ----------------------- | -------------------------- | --------------------- | ------------------------ | ------------------- | ------------------ |
+| [YOLO26n-reid](https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo26n-reid.pt) | 256                   | 23.7                    | 42.5                       | 16.4                  | 30.5                     | 2.0                 | 3.3                |
+| [YOLO26s-reid](https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo26s-reid.pt) | 256                   | 29.4                    | 50.4                       | 16.9                  | 30.7                     | 6.5                 | 12.7               |
 
-- **mAP** and **Rank-1** values are on the [Market-1501](../datasets/reid/market1501.md) dataset. <br>Reproduce by `yolo reid val data=Market-1501.yaml device=0`
+- **mAP** and **Rank-1** values are on the [Market-1501](../datasets/reid/market1501.md) and [DukeMTMC-reID](../datasets/reid/dukemtmc.md) datasets (60 epochs, SGD, imgsz=256). <br>Reproduce by `yolo reid val data=Market-1501.yaml device=0`
 - **Params** and **FLOPs** values are for the fused model after `model.fuse()`.
 
 ## Train
@@ -254,7 +254,15 @@ Key hyperparameters include `reid_p` (identities per batch), `reid_k` (images pe
 
 ### What datasets are supported for ReID training?
 
-Currently, the [Market-1501](../datasets/reid/market1501.md) dataset is the primary supported dataset. It contains 12,936 training images of 751 identities captured from 6 cameras. The dataset follows a specific naming convention (`PPPP_cCsS_XXXXXX.jpg`) that encodes person ID and camera ID. See the [ReID Datasets](../datasets/reid/index.md) guide for format details.
+The following datasets are supported out of the box:
+
+| Dataset | Train Images | IDs | Cameras | Config |
+|---------|-------------|-----|---------|--------|
+| [Market-1501](../datasets/reid/market1501.md) | 12,936 | 751 | 6 | `Market-1501.yaml` |
+| [DukeMTMC-reID](../datasets/reid/dukemtmc.md) | 16,522 | 702 | 8 | `DukeMTMC-reID.yaml` |
+| [MSMT17](../datasets/reid/msmt17.md) | 30,248 | 1,041 | 15 | `MSMT17.yaml` |
+
+Custom datasets are also supported via configurable filename regex patterns. See the [ReID Datasets](../datasets/reid/index.md) guide for format details.
 
 ### What is PK batch sampling in ReID training?
 

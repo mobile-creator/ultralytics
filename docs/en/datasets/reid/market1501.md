@@ -38,6 +38,15 @@ PPPP_cCsS_XXXXXX_XX.jpg
 - `S`: Sequence number
 - `XXXXXX_XX`: Frame number and detection index
 
+## Benchmark Results
+
+Results on Market-1501 with 60 epochs, SGD optimizer, imgsz=256:
+
+| Model | mAP | Rank-1 | Rank-5 | Rank-10 |
+|-------|-----|--------|--------|---------|
+| YOLO26n-reid | 23.7 | 42.5 | 63.9 | 72.7 |
+| YOLO26s-reid | 29.4 | 50.4 | 71.6 | 79.8 |
+
 ## Applications
 
 Market-1501 is the standard benchmark for evaluating person ReID methods, including:
