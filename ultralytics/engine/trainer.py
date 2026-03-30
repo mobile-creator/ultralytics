@@ -1063,7 +1063,6 @@ class BaseTrainer:
                 pattern = re.compile(r'(?:1[0-9]|2[0-3])\.')  # ‘10.’ ~ ‘23.’
             else:
                 pattern = re.compile(r"(?!)")
-            print(pattern)
             g_ = []  # new param groups
             for x in g:
                 p = x.pop("params")
