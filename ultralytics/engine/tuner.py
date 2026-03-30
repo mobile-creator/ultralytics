@@ -128,7 +128,7 @@ class Tuner:
         mongodb_collection = args.pop("mongodb_collection", "tuner_results")
 
         self.args = get_cfg(overrides=args)
-        self.args.exist_ok = self.args.resume  # resume w/ same tune_dir
+        self.args.exist_ok = self.args.exist_ok or self.args.resume  # resume w/ same tune_dir
         self.tune_dir = get_save_dir(self.args, name=self.args.name or "tune")
         self.args.name, self.args.exist_ok, self.args.resume = (None, False, False)  # reset to not affect training
         self.tune_csv = self.tune_dir / "tune_results.csv"
@@ -314,7 +314,12 @@ class Tuner:
             results = self._get_mongodb_results(n)
             if results:
                 # MongoDB already sorted by fitness DESC, so results[0] is best
-                x = np.array([[r["fitness"]] + [r["hyperparameters"].get(k, self.args.get(k)) for k in self.space.keys()] for r in results])
+                x = np.array(
+                    [
+                        [r["fitness"]] + [r["hyperparameters"].get(k, self.args.get(k)) for k in self.space.keys()]
+                        for r in results
+                    ]
+                )
             elif self.collection.name in self.collection.database.list_collection_names():  # Tuner started elsewhere
                 x = np.array([[0.0] + [getattr(self.args, k) for k in self.space.keys()]])
 
@@ -401,25 +406,36 @@ class Tuner:
             train_args = {**vars(self.args), **mutated_hyp}
             save_dir = get_save_dir(get_cfg(train_args))
             weights_dir = save_dir / "weights"
-            try:
-                # Train YOLO model with mutated hyperparameters (run in subprocess to avoid dataloader hang)
-                launch = [__import__("sys").executable, "-m", "ultralytics.cfg.__init__"]  # workaround yolo not found
-                cmd = [*launch, "train", *(f"{k}={v}" for k, v in train_args.items())]
-                return_code = subprocess.run(cmd, check=True).returncode
-                ckpt_file = weights_dir / ("best.pt" if (weights_dir / "best.pt").exists() else "last.pt")
-                metrics = torch_load(ckpt_file)["train_metrics"]
-                assert return_code == 0, "training failed"
+            data = train_args.pop("data")
+            fitness = []
+            if not isinstance(data, (list, tuple)):
+                data = [data]
+            for d in data:
+                try:
+                    train_args["data"] = d
+                    # Train YOLO model with mutated hyperparameters (run in subprocess to avoid dataloader hang)
+                    launch = [
+                        __import__("sys").executable,
+                        "-m",
+                        "ultralytics.cfg.__init__",
+                    ]  # workaround yolo not found
+                    cmd = [*launch, "train", *(f"{k}={v}" for k, v in train_args.items())]
+                    return_code = subprocess.run(cmd, check=True).returncode
+                    ckpt_file = weights_dir / ("best.pt" if (weights_dir / "best.pt").exists() else "last.pt")
+                    metrics = torch_load(ckpt_file)["train_metrics"]
+                    assert return_code == 0, "training failed"
 
-                # Cleanup
-                time.sleep(1)
-                gc.collect()
-                torch.cuda.empty_cache()
+                    # Cleanup
+                    time.sleep(1)
+                    gc.collect()
+                    torch.cuda.empty_cache()
 
-            except Exception as e:
-                LOGGER.error(f"training failure for hyperparameter tuning iteration {i + 1}\n{e}")
+                except Exception as e:
+                    LOGGER.error(f"training failure for hyperparameter tuning iteration {i + 1}\n{e}")
 
-            # Save results - MongoDB takes precedence
-            fitness = metrics.get("fitness", 0.0)
+                # Save results - MongoDB takes precedence
+                fitness.append(metrics.get("fitness") or 0.0)
+            fitness = sum(fitness) / len(fitness)
             if self.mongodb:
                 self._save_to_mongodb(fitness, mutated_hyp, metrics, i + 1)
                 self._sync_mongodb_to_csv()
