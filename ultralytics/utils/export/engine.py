@@ -12,7 +12,6 @@ import torch
 from ultralytics.utils import IS_JETSON, LOGGER, TORCH_VERSION
 from ultralytics.utils.torch_utils import TORCH_2_4, TORCH_2_9
 
-
 _TORCH_ONNX_EXPORT_LOCK = threading.Lock()
 
 
