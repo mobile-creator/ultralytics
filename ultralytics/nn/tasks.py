@@ -1447,9 +1447,9 @@ def _is_module_allowed(module):
 class SafeUnpickler(pickle.Unpickler):
     """Custom Unpickler that validates pickle class references against a module allowlist.
 
-    Validates pickle class references by only allowing known-safe modules (torch, ultralytics.nn, numpy, etc.)
-    and filtering dangerous builtins (getattr, eval, exec, __import__). Unknown classes are replaced with SafeClass,
-    or rejected with ValueError when strict=True.
+    Validates pickle class references by only allowing known-safe modules (torch, ultralytics.nn, numpy, etc.) and
+    filtering dangerous builtins (getattr, eval, exec, __import__). Unknown classes are replaced with SafeClass, or
+    rejected with ValueError when strict=True.
 
     Attributes:
         strict (bool): If True, raise ValueError on blocked classes instead of returning SafeClass.
