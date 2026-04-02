@@ -251,7 +251,6 @@ class DeepOCSORT(OCSORT):
                 track.update(det, self.frame_id)
                 activated_stracks.append(track)
             else:
-                track.apply_oru(det.xyxy, self.frame_id)
                 track.re_activate(det, self.frame_id, new_id=False)
                 refind_stracks.append(track)
 
