@@ -168,11 +168,11 @@ class DeepOCSORT(OCSORT):
         ]
 
     def get_dists(self, tracks, detections):
-        """Compute cost matrix combining IoU and appearance (BOTSORT-style min fusion).
+        """Compute cost matrix combining Buffered IoU and appearance (BOTSORT-style min fusion).
 
-        Uses min(IoU_cost, appearance_cost) with proximity gating, plus OCM velocity cost.
+        Uses min(BIoU_cost, appearance_cost) with proximity gating, plus OCM velocity cost.
         """
-        iou_dists = matching.iou_distance(tracks, detections)
+        iou_dists = self._biou_distance(tracks, detections)
         dists_mask = iou_dists > (1 - self.proximity_thresh)
 
         if self.args.fuse_score:

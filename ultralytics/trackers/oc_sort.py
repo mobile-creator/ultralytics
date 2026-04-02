@@ -194,14 +194,49 @@ class OCSORT(BYTETracker):
         return [OCSortTrack(xywh, s, c, self.delta_t) for (xywh, s, c) in zip(bboxes, results.conf, results.cls)]
 
     def get_dists(self, tracks, detections):
-        """Compute cost matrix with IoU distance and OCM velocity direction consistency cost."""
-        dists = matching.iou_distance(tracks, detections)
+        """Compute cost matrix with Buffered IoU distance and OCM velocity direction consistency cost."""
+        dists = self._biou_distance(tracks, detections)
         if self.args.fuse_score:
             dists = matching.fuse_score(dists, detections)
 
         vel_dists = self._velocity_direction_cost(tracks, detections)
         dists = dists + self.inertia * vel_dists
         return dists
+
+    @staticmethod
+    def _biou_distance(tracks, detections, buffer_ratio=0.5):
+        """Compute Buffered IoU distance: expand boxes before IoU to handle fast motion.
+
+        Each box is expanded by buffer_ratio * sqrt(w*h) in all directions (C-BIoU, BoostTrack).
+
+        Args:
+            tracks: List of tracks or np.ndarray boxes.
+            detections: List of detections or np.ndarray boxes.
+            buffer_ratio (float): Expansion ratio relative to sqrt(area).
+
+        Returns:
+            (np.ndarray): Cost matrix (1 - BIoU).
+        """
+        def _expand_xyxy(xyxy, ratio):
+            """Expand an xyxy box by ratio * sqrt(w*h) in all directions."""
+            w = xyxy[2] - xyxy[0]
+            h = xyxy[3] - xyxy[1]
+            buf = ratio * np.sqrt(max(w * h, 1.0))
+            return np.array([xyxy[0] - buf, xyxy[1] - buf, xyxy[2] + buf, xyxy[3] + buf])
+
+        def _get_boxes(items):
+            if items and isinstance(items[0], np.ndarray):
+                return items
+            return [t.xywha if t.angle is not None else t.xyxy for t in items]
+
+        aboxes = _get_boxes(tracks)
+        bboxes = _get_boxes(detections)
+
+        # Only expand xyxy (4-element) boxes, not rotated (5-element)
+        aboxes_exp = [_expand_xyxy(b, buffer_ratio) if len(b) == 4 else b for b in aboxes]
+        bboxes_exp = [_expand_xyxy(b, buffer_ratio) if len(b) == 4 else b for b in bboxes]
+
+        return matching.iou_distance(aboxes_exp, bboxes_exp)
 
     def update(self, results, img=None, feats=None):
         """Update tracker with new detections using OC-SORT association pipeline."""
