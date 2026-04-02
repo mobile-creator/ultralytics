@@ -275,7 +275,7 @@ class YOLODataset(BaseDataset):
         keypoints = label.pop("keypoints", None)
         bbox_format = label.pop("bbox_format")
         normalized = label.pop("normalized")
-
+        segments=[] # add this for debug
         # NOTE: do NOT resample oriented boxes
         segment_resamples = 100 if self.use_obb else 1000
         if len(segments) > 0:
