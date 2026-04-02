@@ -8,7 +8,7 @@ track_high_thresh: 0.3 # (float) First-stage match threshold; raise for cleaner 
 track_low_thresh: 0.1 # (float) Second-stage threshold for low-score matches; used with use_byte=True
 new_track_thresh: 0.3 # (float) Start a new track if no match ≥ this; higher reduces false tracks
 track_buffer: 50 # (int) Frames to keep lost tracks alive; increased for better occlusion handling in crowded scenes
-match_thresh: 0.7 # (float) Tightened association threshold to reduce BIoU false matches
+match_thresh: 0.8 # (float) Association similarity threshold (IoU/cost); tune with detector quality
 fuse_score: True # (bool) Fuse detection score with motion/IoU for matching; stabilizes weak detections
 
 # OC-SORT specifics (inherited)
