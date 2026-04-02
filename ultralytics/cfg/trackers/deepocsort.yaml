@@ -22,4 +22,4 @@ with_reid: True # (bool) Enable ReID model use; needs extra model and compute
 model: yolo26s-reid.pt # (str) Larger ReID model for better appearance matching
 proximity_thresh: 0.3 # (float) Lowered so ReID activates for more distant matches
 appearance_thresh: 0.95 # (float) Tightened for high-confidence appearance matches only
-alpha_fixed_emb: 0.85 # (float) Faster embedding adaptation to appearance changes
+alpha_fixed_emb: 0.75 # (float) Even faster embedding adaptation
