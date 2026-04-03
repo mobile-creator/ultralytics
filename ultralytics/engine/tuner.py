@@ -326,6 +326,18 @@ class Tuner:
         # Fall back to CSV if MongoDB unavailable or empty
         if x is None and self.tune_csv.exists():
             csv_data = np.loadtxt(self.tune_csv, ndmin=2, delimiter=",", skiprows=1)
+            with open(self.tune_csv) as f:
+                headers = f.readline().strip().split(",")
+            if len(headers) != len(self.space) + 1:
+                new_data = np.zeros((csv_data.shape[0], len(self.space) + 1))
+                keys = ["fitness"] + list(self.space.keys())
+                for i, k in enumerate(keys):
+                    if k in headers:
+                        idx = headers.index(k)
+                        new_data[:, i] = csv_data[:, idx]
+                    else:
+                        new_data[:, i] = getattr(self.args, k)
+                csv_data = new_data
             if len(csv_data) > 0:
                 fitness = csv_data[:, 0]  # first column
                 order = np.argsort(-fitness)
