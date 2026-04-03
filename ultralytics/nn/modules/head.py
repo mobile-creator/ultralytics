@@ -1257,7 +1257,10 @@ class YOLOESegment26(YOLOESegment):
         if isinstance(preds, dict):  # training and validating during training
             if self.end2end and not hasattr(self, "lrpc"):  # not prompt-free
                 preds["one2many"]["proto"] = proto
-                preds["one2one"]["proto"] = proto.detach()
+                if isinstance(proto, tuple):
+                    preds["one2one"]["proto"] = tuple(p.detach() for p in proto)
+                else:
+                    preds["one2one"]["proto"] = proto.detach()
             else:
                 preds["proto"] = proto
         if self.training:
