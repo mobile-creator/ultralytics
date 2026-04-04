@@ -118,8 +118,8 @@ def scale_boxes(img1_shape, boxes, img0_shape, ratio_pad=None, padding: bool = T
     """
     if ratio_pad is None:  # calculate from img0_shape
         gain = min(img1_shape[0] / img0_shape[0], img1_shape[1] / img0_shape[1])  # gain  = old / new
-        pad_x = round((img1_shape[1] - img0_shape[1] * gain) / 2 - 0.1)
-        pad_y = round((img1_shape[0] - img0_shape[0] * gain) / 2 - 0.1)
+        pad_x = round((img1_shape[1] - round(img0_shape[1] * gain)) / 2 - 0.1)
+        pad_y = round((img1_shape[0] - round(img0_shape[0] * gain)) / 2 - 0.1)
     else:
         gain = ratio_pad[0][0]
         pad_x, pad_y = ratio_pad[1]
@@ -464,7 +464,7 @@ def crop_mask(masks: torch.Tensor, boxes: torch.Tensor) -> torch.Tensor:
         boxes = boxes.to(masks.device)
     n, h, w = masks.shape
     if n < 50 and not masks.is_cuda:  # faster for fewer masks (predict)
-        for i, (x1, y1, x2, y2) in enumerate(boxes.round().int()):
+        for i, (x1, y1, x2, y2) in enumerate(boxes.clamp(min=0).round().int()):
             masks[i, :y1] = 0
             masks[i, y2:] = 0
             masks[i, :, :x1] = 0
@@ -547,7 +547,7 @@ def scale_masks(
 
     if ratio_pad is None:  # calculate from im0_shape
         gain = min(im1_h / im0_h, im1_w / im0_w)  # gain  = old / new
-        pad_w, pad_h = (im1_w - im0_w * gain), (im1_h - im0_h * gain)  # wh padding
+        pad_w, pad_h = (im1_w - round(im0_w * gain)), (im1_h - round(im0_h * gain))  # wh padding
         if padding:
             pad_w /= 2
             pad_h /= 2
@@ -577,7 +577,7 @@ def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None, normalize: bool
     if ratio_pad is None:  # calculate from img0_shape
         img1_h, img1_w = img1_shape[:2]  # supports both HWC or HW shapes
         gain = min(img1_h / img0_h, img1_w / img0_w)  # gain  = old / new
-        pad = (img1_w - img0_w * gain) / 2, (img1_h - img0_h * gain) / 2  # wh padding
+        pad = (img1_w - round(img0_w * gain)) / 2, (img1_h - round(img0_h * gain)) / 2  # wh padding
     else:
         gain = ratio_pad[0][0]
         pad = ratio_pad[1]
