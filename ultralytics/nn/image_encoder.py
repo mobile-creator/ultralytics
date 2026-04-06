@@ -224,7 +224,48 @@ class ImageEncoderModel(ClassificationModel):
             s_patch = heads["patch"](patch_normed)
             teacher_preds[key] = (s_cls, s_patch)
 
-        return self.criterion(teacher_preds, batch)
+        result = self.criterion(teacher_preds, batch)
+
+        # Nan instrumentation: log diagnostic info on first nan occurrence per training run
+        if result[1].isnan().any() and not getattr(self, "_nan_logged", False):
+            self._nan_logged = True
+            import logging
+
+            log = logging.getLogger("ultralytics")
+            log.warning("NAN DETECTED in loss items. Diagnostic dump:")
+            log.warning(f"  loss_items: {result[1].tolist()}")
+            log.warning(
+                f"  features: nan={features.isnan().any()}, inf={features.isinf().any()}, "
+                f"max={features.abs().max():.4f}, dtype={features.dtype}"
+            )
+            log.warning(f"  cls_normed: nan={cls_normed.isnan().any()}, max={cls_normed.abs().max():.4f}")
+            for key in self.adaptors:
+                s_cls, s_patch = teacher_preds[key]
+                t_data = batch[key]
+                log.warning(
+                    f"  {key}/s_cls: nan={s_cls.isnan().any()}, inf={s_cls.isinf().any()}, "
+                    f"max={s_cls.abs().max():.4f}, dtype={s_cls.dtype}"
+                )
+                log.warning(
+                    f"  {key}/s_patch: nan={s_patch.isnan().any()}, inf={s_patch.isinf().any()}, "
+                    f"max={s_patch.abs().max():.4f}"
+                )
+                log.warning(
+                    f"  {key}/t_cls: nan={t_data['cls'].isnan().any() if t_data['cls'] is not None else 'N/A'}, "
+                    f"max={t_data['cls'].abs().max():.4f if t_data['cls'] is not None else 'N/A'}"
+                )
+                log.warning(
+                    f"  {key}/t_patch: nan={t_data['patches'].isnan().any()}, max={t_data['patches'].abs().max():.4f}"
+                )
+            # Check adaptor weight magnitudes
+            for key in self.adaptors:
+                for name, p in self.adaptors[key].named_parameters():
+                    if p.isnan().any() or p.isinf().any():
+                        log.warning(f"  PARAM {key}/{name}: nan={p.isnan().any()}, inf={p.isinf().any()}")
+                    if p.abs().max() > 1000:
+                        log.warning(f"  PARAM {key}/{name}: max={p.abs().max():.1f} (large)")
+
+        return result
 
     def init_criterion(self):
         """Initialize distillation loss."""
