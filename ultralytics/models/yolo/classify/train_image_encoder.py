@@ -11,7 +11,7 @@ Dataset support: WebDataset tar shards (DataComp-12M) and image folders (COCO, I
 
 from __future__ import annotations
 
-import glob
+import json
 from copy import copy
 from pathlib import Path
 from typing import Any
@@ -30,6 +30,37 @@ from ultralytics.utils import DEFAULT_CFG, LOGGER, RANK
 # ImageNet normalization (used by EUPE, DINOv3, SigLIP2, SAM3 -- standard for ViT models)
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
+
+
+class _WebDatasetLoader(DataLoader):
+    """DataLoader for WebDataset shards, compatible with ultralytics trainer.
+
+    Wraps a wds.DataPipeline inside a standard DataLoader by converting it to an IterableDataset. Provides .reset(),
+    .dataset (with __len__), .num_workers, .sampler -- all required by engine/trainer.py (lines 283, 370, 379, 403).
+
+    Args:
+        pipeline: WebDataset pipeline (wds.DataPipeline).
+        num_samples (int): Estimated total samples in dataset.
+        batch_size (int): Batch size.
+        num_workers (int): Number of data loading workers.
+    """
+
+    def __init__(self, pipeline, num_samples, batch_size, num_workers, drop_last=False):
+        """Initialize with WebDataset pipeline wrapped as IterableDataset."""
+
+        class _IterDS(torch.utils.data.IterableDataset):
+            def __iter__(self):
+                return iter(pipeline)
+
+            def __len__(self):
+                return num_samples
+
+        super().__init__(
+            _IterDS(), batch_size=batch_size, num_workers=num_workers, pin_memory=True, drop_last=drop_last
+        )
+
+    def reset(self):
+        """No-op: WebDataset workers don't need reset (no mosaic state)."""
 
 
 class _ImageOnlyDataset(Dataset):
@@ -55,9 +86,9 @@ class _ImageOnlyDataset(Dataset):
         """Return number of images."""
         return len(self.samples)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, index: int):
         """Load image and apply transform."""
-        return self.transform(Image.open(self.samples[idx]).convert("RGB"))
+        return self.transform(Image.open(self.samples[index]).convert("RGB"))
 
 
 class ImageEncoderTrainer(ClassificationTrainer):
@@ -82,6 +113,7 @@ class ImageEncoderTrainer(ClassificationTrainer):
         """
         if overrides is None:
             overrides = {}
+        overrides.setdefault("close_mosaic", 0)  # no mosaic in distillation, avoids .reset() call
         # Support both 'teacher_name' (single) and 'teacher_names' (multi, '+' separated)
         raw = overrides.pop("teacher_names", overrides.pop("teacher_name", "eupe:vitb16"))
         self.teacher_names = raw.split("+") if isinstance(raw, str) else raw
@@ -194,7 +226,7 @@ class ImageEncoderTrainer(ClassificationTrainer):
         """
         tf = self._build_transforms(mode)
 
-        shards = sorted(glob.glob(str(Path(img_path) / "shards" / "*.tar")))
+        shards = sorted(str(p) for p in Path(img_path).glob("shards/*.tar"))
         if shards:
             import webdataset as wds
 
@@ -221,13 +253,16 @@ class ImageEncoderTrainer(ClassificationTrainer):
             (DataLoader): DataLoader yielding (student_imgs, teacher_imgs) batches.
         """
         dataset = self.build_dataset(dataset_path, mode)
-        if hasattr(dataset, "batched"):
-            import webdataset as wds
-
-            loader = wds.WebLoader(dataset, batch_size=batch_size, num_workers=self.args.workers)
-            if mode == "train":
-                loader = loader.shuffle(1000)
-            return loader
+        if not isinstance(dataset, Dataset):
+            # WebDataset pipeline (not a map-style Dataset) -- wrap for DataLoader compatibility
+            num_samples = 0
+            for f in sorted(Path(dataset_path).glob("shards/*_stats.json")):
+                with open(f) as fh:
+                    num_samples += json.load(fh)["successes"]
+            if not num_samples:
+                num_samples = len(list(Path(dataset_path).glob("shards/*.tar"))) * 6000
+                LOGGER.warning(f"No stats files found, estimating {num_samples} samples from shard count")
+            return _WebDatasetLoader(dataset, num_samples, batch_size, self.args.workers, drop_last=mode == "train")
         return DataLoader(
             dataset,
             batch_size=batch_size,
