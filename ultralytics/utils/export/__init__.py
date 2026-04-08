@@ -12,6 +12,7 @@ from .paddle import torch2paddle
 from .rknn import onnx2rknn
 from .tensorflow import keras2pb, onnx2saved_model, pb2tfjs, tflite2edgetpu
 from .torchscript import torch2torchscript
+from .ethos import torch2ethos
 
 __all__ = [
     "keras2pb",
@@ -30,4 +31,5 @@ __all__ = [
     "torch2openvino",
     "torch2paddle",
     "torch2torchscript",
+    "torch2ethos"
 ]
