@@ -39,6 +39,9 @@ class FeatureFusionBlock(nn.Module):
 
     def forward(self, x: torch.Tensor, skip: torch.Tensor | None = None) -> torch.Tensor:
         if skip is not None:
+            # Resize path to match skip spatial dims (handles odd patch sizes)
+            if x.shape[2:] != skip.shape[2:]:
+                x = F.interpolate(x, size=skip.shape[2:], mode="bilinear", align_corners=True)
             x = x + skip
         x = self.res_conv1(x)
         x = self.res_conv2(x)
