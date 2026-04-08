@@ -29,12 +29,12 @@ class DepthValidator(DetectionValidator):
         self.depth_metrics = []
 
     def preprocess(self, batch):
-        """Preprocess batch — move to device and handle precision."""
+        """Preprocess batch — move to device, normalize images, handle precision."""
         for k, v in batch.items():
             if isinstance(v, torch.Tensor):
                 batch[k] = v.to(self.device, non_blocking=self.device.type == "cuda")
-        # Images are already normalized [0,1] by DepthFormat; just handle half precision
-        batch["img"] = batch["img"].half() if self.args.half else batch["img"].float()
+        # Normalize images to [0,1] (DepthFormat outputs uint8, same as detection pipeline)
+        batch["img"] = (batch["img"].half() if self.args.half else batch["img"].float()) / 255
         if "depth" in batch:
             batch["depth"] = batch["depth"].float()  # depth always float32
         return batch
