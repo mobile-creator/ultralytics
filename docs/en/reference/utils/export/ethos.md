@@ -1,6 +1,6 @@
 ---
-description: TODO ADD DESCRIPTION
-keywords: TODO ADD KEYWORDS
+description: Explore the Ultralytics Ethos-U export utility for converting YOLO models to Arm Ethos-U NPU format using ExecuTorch for efficient on-device inference on embedded systems.
+keywords: Ultralytics, Ethos-U, Arm NPU, YOLO, model export, PyTorch, edge AI, embedded deployment, on-device inference, ExecuTorch, pte format, quantization, embedded systems
 ---
 
 # Reference for `ultralytics/utils/export/ethos.py`
