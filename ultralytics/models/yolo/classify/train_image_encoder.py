@@ -159,6 +159,18 @@ class ImageEncoderTrainer(ClassificationTrainer):
             # bf16 instead of fp16: fp16 backbone produces nan on ~5% of DataComp-12M batches
             # (max 65504 vs bf16 sharing fp32 exponent range). Follows DUNE convention.
             torch.set_autocast_dtype("cuda", torch.bfloat16)
+        # kNN eval on ImageNet for frozen feature quality tracking (EUPE/RADIO protocol: k=20, T=0.07).
+        # Enabled via knn_eval=<imagenet_path> in train_args (survives DDP via allowed_custom_keys).
+        # Runs inside trainer so DDP subprocess inherits it (model.add_callback in run scripts is
+        # lost because DDP re-creates trainer from serialized args only, utils/dist.py:79).
+        self._knn_state = {}
+        knn_path = getattr(self.args, "knn_eval", "")
+        if knn_path and RANK in {-1, 0}:
+            knn_path = Path(knn_path)
+            if knn_path.is_dir():
+                self._knn_state["path"] = knn_path
+            else:
+                LOGGER.warning(f"kNN eval skipped: {knn_path} not found")
 
     def get_dataset(self):
         """Build minimal data dict for distillation (no check_cls_dataset needed).
@@ -378,6 +390,67 @@ class ImageEncoderTrainer(ClassificationTrainer):
         )
         validator.teacher_models = self.teacher_models
         return validator
+
+    def validate(self):
+        """Run validation, then kNN eval if configured."""
+        metrics, fitness = super().validate()
+        if metrics is not None and "path" in self._knn_state:
+            knn_top1 = self._knn_eval()
+            if knn_top1 is not None:
+                metrics["knn/top1"] = round(knn_top1, 4)
+        return metrics, fitness
+
+    def _knn_eval(self, every_n=5):
+        """Run kNN accuracy eval on ImageNet (k=20, T=0.07). Skips non-Nth epochs."""
+        epoch = self.epoch + 1
+        if epoch % every_n != 0 and epoch < self.epochs:
+            return None
+        from ultralytics.utils.knn_eval import extract_features, knn_accuracy
+
+        # Build dataloaders on first call, cache for reuse
+        if "train_loader" not in self._knn_state:
+            from types import SimpleNamespace
+
+            from ultralytics.data import ClassificationDataset
+            from ultralytics.data.build import build_dataloader
+
+            root = self._knn_state["path"]
+            args = SimpleNamespace(
+                imgsz=224,
+                cache=False,
+                fraction=1.0,
+                auto_augment="",
+                erasing=0.0,
+                crop_fraction=1.0,
+                scale=0.92,
+                fliplr=0.5,
+                flipud=0.0,
+                hsv_h=0.015,
+                hsv_s=0.4,
+                hsv_v=0.4,
+            )
+            train_ds = ClassificationDataset(str(root / "train"), args=args, augment=False, prefix="knn-train")
+            val_ds = ClassificationDataset(str(root / "val"), args=args, augment=False, prefix="knn-val")
+            self._knn_state["train_loader"] = build_dataloader(train_ds, 256, 8, shuffle=False, rank=-1)
+            self._knn_state["val_loader"] = build_dataloader(val_ds, 256, 8, shuffle=False, rank=-1)
+            self._knn_state["num_classes"] = len(train_ds.base.classes)
+
+        model = self.ema.ema if self.ema else self.model
+        LOGGER.info(f"kNN eval: epoch {epoch}, extracting features...")
+        train_feats, train_labels = extract_features(model, self._knn_state["train_loader"], self.device)
+        val_feats, val_labels = extract_features(model, self._knn_state["val_loader"], self.device)
+        top1 = knn_accuracy(
+            train_feats,
+            train_labels,
+            val_feats,
+            val_labels,
+            k=20,
+            temp=0.07,
+            num_classes=self._knn_state["num_classes"],
+            device=self.device,
+        )
+        LOGGER.info(f"kNN eval: top-1 = {top1:.2f}% (epoch {epoch})")
+        return top1
 
     def label_loss_items(self, loss_items=None, prefix="train"):
         """Return labeled loss items for WandB logging.
