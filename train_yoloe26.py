@@ -319,6 +319,7 @@ parser.add_argument("--override", type=str, default=None)
 # freeze all but one2one_cv4
 parser.add_argument("--freeze_all_but_one2one_cv4", action="store_true", help="freeze all layers except one2one_cv4")
 
+parser.add_argument("--save_json",type=str,default="True", choices=["True", "False"]) # whether to save results in json format for evaluation
 
 
 
@@ -334,6 +335,9 @@ if args.freeze_all_but_one2one_cv4:
 # Convert string to bool
 args.val = args.val == "True"
 args.ag = args.ag == "True"
+args.save_json = args.save_json == "True"
+assert args.save_json == True, "Currently we only support saving json format results for evaluation. Please set --save_json to True."
+
 # args.semseg_loss = args.semseg_loss == "True"
 assert args.trainer in ["YOLOETrainerFromScratch","YOLOEVPTrainer","YOLOEPEFreeTrainer","YOLOESegTrainerFromScratch","YOLOESegTrainerSegHead"], \
     "trainer must be YOLOETrainerFromScratch, YOLOEVPTrainer, YOLOEPEFreeTrainer, YOLOESegTrainerFromScratch, or YOLOESegTrainerSegHead"
@@ -491,6 +495,7 @@ train_args=dict( data=data,
     single_cls=single_cls, # for YOLOEPEFreeTrainer
     freeze=freeze, # for YOLOEVPTrainer
     # refer_data=refer_data, # for YOLOEVPTrainer)
+    save_json=args.save_json,
     )
 
 
