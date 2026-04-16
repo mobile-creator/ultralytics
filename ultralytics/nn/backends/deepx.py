@@ -37,7 +37,7 @@ class DeepXBackend(BaseBackend):
         except (FileNotFoundError, subprocess.CalledProcessError):
             LOGGER.info(f"\nDeepX inference requires the DeepX runtime. Attempting install from {help_url}")
             if not IS_DEBIAN_TRIXIE:
-                raise EnvironmentError("DeepX runtime auto-install is only supported on Debian Trixie.")
+                raise OSError("DeepX runtime auto-install is only supported on Debian Trixie.")
             sudo = "sudo " if is_sudo_available() else ""
             for c in (
                 f"wget -qO - https://sixfab.github.io/sixfab_dx/public.gpg | {sudo}gpg --dearmor -o /usr/share/keyrings/sixfab-dx.gpg",
@@ -55,7 +55,7 @@ class DeepXBackend(BaseBackend):
                     raise FileNotFoundError("No dx_engine wheel found in /opt/sixfab-dx/wheels/. Ensure sixfab-dx is installed.")
                 subprocess.run(["pip", "install", str(wheels[-1])], check=True)
             else:
-                raise EnvironmentError(
+                raise OSError(
                     "dx_engine is not installed. Auto-install is only supported on Debian Trixie. "
                     "Please install dx_engine manually and try again."
                 )
