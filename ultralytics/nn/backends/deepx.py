@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from ultralytics.utils import IS_DEBIAN_TRIXIE, LOGGER
+from ultralytics.utils import ARM64, IS_DEBIAN_TRIXIE, LOGGER
 from ultralytics.utils.checks import check_apt_requirements, is_sudo_available
 
 from .base import BaseBackend
@@ -36,8 +36,8 @@ class DeepXBackend(BaseBackend):
             subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
         except (FileNotFoundError, subprocess.CalledProcessError):
             LOGGER.info(f"\nDeepX inference requires the DeepX runtime. Attempting install from {help_url}")
-            if not IS_DEBIAN_TRIXIE:
-                raise OSError("DeepX runtime auto-install is only supported on Debian Trixie.")
+            if not (IS_DEBIAN_TRIXIE and ARM64):
+                raise OSError("DeepX runtime auto-install is only supported on Debian Trixie (arm64).")
             sudo = "sudo " if is_sudo_available() else ""
             for c in (
                 f"wget -qO - https://sixfab.github.io/sixfab_dx/public.gpg | {sudo}gpg --dearmor -o /usr/share/keyrings/sixfab-dx.gpg",
@@ -49,7 +49,7 @@ class DeepXBackend(BaseBackend):
         try:
             from dx_engine import InferenceEngine
         except ImportError:
-            if IS_DEBIAN_TRIXIE:
+            if IS_DEBIAN_TRIXIE and ARM64:
                 wheels = sorted(Path("/opt/sixfab-dx/wheels").glob("dx_engine-*.whl"))
                 if not wheels:
                     raise FileNotFoundError(
@@ -58,7 +58,7 @@ class DeepXBackend(BaseBackend):
                 subprocess.run(["pip", "install", str(wheels[-1])], check=True)
             else:
                 raise OSError(
-                    "dx_engine is not installed. Auto-install is only supported on Debian Trixie. "
+                    "dx_engine is not installed. Auto-install is only supported on Debian Trixie (arm64). "
                     "Please install dx_engine manually and try again."
                 )
             from dx_engine import InferenceEngine
