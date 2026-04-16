@@ -84,7 +84,7 @@ For organizations with advanced needs:
 - SLA guarantees (coming soon)
 - Enterprise support
 
-Contact [sales@ultralytics.com](mailto:sales@ultralytics.com) for Enterprise pricing.
+See [Ultralytics Licensing](https://www.ultralytics.com/license) for Enterprise plan details.
 
 ## Credits
 

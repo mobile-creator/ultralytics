@@ -170,6 +170,7 @@ CFG_FLOAT_KEYS = frozenset(
         "warmup_epochs",
         "box",
         "cls",
+        "cls_pw",
         "dfl",
         "degrees",
         "shear",
