@@ -127,6 +127,10 @@ The `Charts` tab provides automatic analysis including:
 - **Annotation Locations**: 2D heatmap of bounding box center positions
 - **Image Dimensions**: 2D heatmap of width vs height with aspect ratio guide lines
 
+### Health and Clustering
+
+Explore your dataset as an interactive 2D scatter plot, detect blurry, overexposed, low-contrast, and near-duplicate images. Brush a region of the plot to filter the gallery by cluster. See [Health & Clustering](datasets.md#health-clustering) for details.
+
 ## Quick Links
 
 - [**Datasets**](datasets.md): Upload, manage, and export your training data

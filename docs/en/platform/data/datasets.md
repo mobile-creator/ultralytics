@@ -218,7 +218,9 @@ graph LR
 
 ## Browse Images
 
-View your dataset images in multiple layouts:
+View your dataset images in multiple layouts.
+
+Switch to the [Health & Clustering](#health-clustering) panel to inspect image quality and explore clusters visually.
 
 | View        | Description                                                                       |
 | ----------- | --------------------------------------------------------------------------------- |
@@ -284,6 +286,86 @@ Filter images by their dataset split:
 | **Train** | Used for model training             |
 | **Val**   | Used for validation during training |
 | **Test**  | Used for final evaluation           |
+
+## Health & Clustering
+
+The `Health & Clustering` panel analyzes your dataset for quality issues and visualizes image similarity as an interactive 2D scatter plot. Open it from the scatter-chart icon in the gallery toolbar on any dataset page.
+
+<!-- TODO(screenshot): platform-datasets-health-clustering-empty-state.avif -->
+![Ultralytics Platform Datasets Health And Clustering Empty State](https://cdn.jsdelivr.net/gh/ultralytics/assets@main/docs/platform/platform-datasets-health-clustering-empty-state.avif)
+
+### Running Analysis
+
+Dataset owners and editors can start an analysis:
+
+1. Open a dataset and click the scatter-chart icon in the gallery toolbar
+2. Click `Analyze Dataset`
+3. Wait for the progress bar to finish — results appear in the same panel
+
+Analysis runs in the background and can take a few minutes depending on the size of your dataset. You can close the panel or leave the page and come back later.
+
+<!-- TODO(screenshot): platform-datasets-health-clustering-progress.avif -->
+![Ultralytics Platform Datasets Health And Clustering Analysis Progress](https://cdn.jsdelivr.net/gh/ultralytics/assets@main/docs/platform/platform-datasets-health-clustering-progress.avif)
+
+!!! tip "Cancel & Retry"
+
+    If an analysis gets stuck, you will see a `Cancel & Retry` button to reset it and start over.
+
+
+### Quality Metrics
+
+After analysis, the panel summarizes how many images fall into each issue category:
+
+| Metric             | What it finds                                      |
+| ------------------ | -------------------------------------------------- |
+| **Blurry**         | Images that are out of focus or motion-blurred     |
+| **Overexposed**    | Images that are too bright or washed out           |
+| **Low contrast**   | Images with flat tones and little visual variation |
+| **Near-duplicate** | Images that are visually identical or very similar |
+
+Each metric also appears as a clickable filter badge on the scatter plot.
+
+### Cluster Visualization
+
+Once analysis completes, the panel shows a 2D scatter of all images. Similar-looking images appear close together, so duplicates, outliers, and under-represented visual subsets become visually obvious.
+
+![Ultralytics Platform Datasets Health And Clustering Scatter Plot](https://cdn.jsdelivr.net/gh/ultralytics/assets@main/docs/platform/platform-datasets-health-clustering.avif)
+
+#### View
+
+Change how data points are shaded with the `View` dropdown in the panel toolbar. Switch view modes at any time — the plot re-colors instantly so you can see how splits, classes, or image properties are distributed across your clusters:
+
+| Option          | Shading                                              |
+| --------------- | ---------------------------------------------------- |
+| **Splits**      | Train / Val / Test — spot split imbalance per region |
+| **Classes**     | Annotation class on each image                       |
+| **Width**       | Image width                                          |
+| **Height**      | Image height                                         |
+| **Size**        | File size                                            |
+| **Annotations** | Number of annotations per image                      |
+
+Categorical modes (Splits, Classes) render a legend; numeric modes render a gradient scale.
+
+<!-- TODO(screenshot): platform-datasets-health-clustering-view-modes.avif -->
+![Ultralytics Platform Datasets Health And Clustering View Modes](https://cdn.jsdelivr.net/gh/ultralytics/assets@main/docs/platform/platform-datasets-health-clustering-view-modes.avif)
+
+#### Quality Filters
+
+Click any of the available quality badges to keep only matching points on the plot and in the gallery below. Filters compose — enabling Blurry and Near-duplicate shows both sets at once.
+
+#### Selecting Images
+
+Selected points immediately filter the gallery below the scatter plot, so you can brush a suspicious cluster and inspect, relabel, move, or delete the matching images using the usual [image operations](#image-operations).
+
+<!-- TODO(screenshot): platform-datasets-health-clustering-brush-selection.avif -->
+![Ultralytics Platform Datasets Health And Clustering Brush Selection](https://cdn.jsdelivr.net/gh/ultralytics/assets@main/docs/platform/platform-datasets-health-clustering-brush-selection.avif)
+
+### Re-analysis
+
+If you add or remove images, re-run the analysis from the panel header:
+
+- **Update Analysis** — appears when your dataset has changed significantly since the last run
+- **Re-analyze** — recompute at any time
 
 ## Dataset Tabs
 
