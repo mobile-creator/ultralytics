@@ -151,7 +151,7 @@ def export_formats():
             "TensorRT for RTX",
             "engine_rtx",
             ".rtx.engine",
-            False,
+            True,
             True,
             ["batch", "dynamic", "simplify", "nms"],
         ],
@@ -937,7 +937,8 @@ class Exporter:
         Python package (separate from classic `tensorrt`). Engines built here are NOT interchangeable
         with classic TensorRT engines.
         """
-        assert self.im.device.type != "cpu", "export running on CPU but must be on GPU, i.e. use 'device=0'"
+        # Note: unlike classic TensorRT, TRT-RTX does not require a GPU at build time — the
+        # engine is device-agnostic and JIT-compiles kernels on first load on the target RTX GPU.
         assert not self.args.half, "half=True is not yet supported for format='engine_rtx' (FP32 only)"
         assert not self.args.int8, "int8=True is not yet supported for format='engine_rtx' (FP32 only)"
         f_onnx = self.export_onnx()  # run before TRT-RTX import to isolate ONNX export failures
