@@ -467,7 +467,7 @@ class TRACKTRACK:
     Examples:
         Initialize and run on a single frame
         >>> tracker = TRACKTRACK(args, frame_rate=30)
-        >>> tracked = tracker.update(yolo_results, img=image)
+        >>> tracked_objects = tracker.update(yolo_results, img=image)
     """
 
     # Reuse BYTETracker's purely-structural helpers (they only rely on .track_id / .frame_id /
