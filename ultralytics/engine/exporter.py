@@ -67,8 +67,8 @@ import os
 import shutil
 import time
 from copy import deepcopy
-from functools import partial
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 
 import numpy as np
