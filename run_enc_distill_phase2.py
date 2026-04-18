@@ -16,7 +16,7 @@ from pathlib import Path
 
 import torch
 
-from callbacks import grad_clip, muon_w, nfs_sync, wandb_config
+from callbacks import grad_clip, muon_w, nfs_sync, paths, wandb_config
 from ultralytics import YOLO
 
 
@@ -46,14 +46,6 @@ _AUG_ARGS = dict(
     crop_fraction=1,
 )
 
-# Write checkpoints/logs to local SSD, mirror to shared NFS periodically (see callbacks/nfs_sync.py).
-LOCAL_PROJECT = "/home/fatih/runs/yolo-next-encoder"
-NFS_MIRROR_ROOT = "/data/shared-datasets/fatih-runs/classify/yolo-next-encoder"
-SYNC_INTERVAL_SEC = 600
-assert Path(LOCAL_PROJECT).is_absolute() and str(LOCAL_PROJECT).startswith("/home/"), (
-    f"LOCAL_PROJECT must be absolute and under /home/ to decouple from NFS, got {LOCAL_PROJECT}"
-)
-
 
 def main(argv: list[str]) -> None:
     """Launch a fresh phase 2 run or resume from a checkpoint."""
@@ -63,6 +55,8 @@ def main(argv: list[str]) -> None:
         i = argv.index("--fork_from")
         fork_from = argv[i + 1]
         argv = argv[:i] + argv[i + 2:]
+    if resume:
+        resume = paths.patch_resume(resume)
     resume_args = _load_train_args(resume) if resume else {}
     gpu = argv[0] if argv else "0"
     phase1_weights = (
@@ -96,7 +90,7 @@ def main(argv: list[str]) -> None:
     if mode in ("finetune", "coco_det", "coco_det_frozen"):
         model.add_callback("on_train_start", muon_w.override(0.1))
     model.add_callback("on_train_start", grad_clip.override(1.0))
-    sync_start, sync_end = nfs_sync.setup(NFS_MIRROR_ROOT, interval_sec=SYNC_INTERVAL_SEC)
+    sync_start, sync_end = nfs_sync.setup(str(paths.NFS_MIRROR_ROOT), interval_sec=paths.SYNC_INTERVAL_SEC)
     model.add_callback("on_train_start", sync_start)
     model.add_callback("on_train_end", sync_end)
     model.add_callback(
@@ -113,8 +107,7 @@ def main(argv: list[str]) -> None:
     train_args = dict(
         pretrained=phase1_weights,
         device=gpu if mode == "coco_det" else int(gpu),
-        project=LOCAL_PROJECT,
-        name=name,
+        **paths.run_paths(name),
         cos_lr=True,
         warmup_bias_lr=0,
         dropout=0,

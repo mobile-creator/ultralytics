@@ -6,7 +6,7 @@ from pathlib import Path
 
 import torch
 
-from callbacks import beta2_override, grad_clip, nfs_sync, wandb_config
+from callbacks import beta2_override, grad_clip, nfs_sync, paths, wandb_config
 from ultralytics import YOLO
 from ultralytics.models.yolo.classify.train_image_encoder import ImageEncoderTrainer
 
@@ -19,14 +19,6 @@ RECIPES = {
     # Same loss as ours (0.9cos+0.1L1). beta2=0.95 from MobileCLIP2 (training/configs/run_dfndr2b.sh)
     "radio": dict(lr0=1e-3, weight_decay=0.02, warmup_epochs=1, epochs=30, momentum=0.9, grad_clip=1.0, beta2=0.95),
 }
-
-# Write checkpoints/logs to local SSD, mirror to shared NFS periodically (see callbacks/nfs_sync.py).
-LOCAL_PROJECT = "/home/fatih/runs/yolo-next-encoder"
-NFS_MIRROR_ROOT = "/data/shared-datasets/fatih-runs/classify/yolo-next-encoder"
-SYNC_INTERVAL_SEC = 600
-assert Path(LOCAL_PROJECT).is_absolute() and str(LOCAL_PROJECT).startswith("/home/"), (
-    f"LOCAL_PROJECT must be absolute and under /home/ to decouple from NFS, got {LOCAL_PROJECT}"
-)
 
 
 def _pop_flag(argv: list[str], flag: str, is_bool: bool = False) -> tuple[list[str], str]:
@@ -73,6 +65,8 @@ def main(argv: list[str]) -> None:
     cls_l1 = bool(cls_l1_str)
     lr0 = float(lr_override) if lr_override else r["lr0"]
 
+    if resume:
+        resume = paths.patch_resume(resume)
     resume_args = _load_train_args(resume) if resume else {}
     gpu = args[0] if args else "0"
     teachers = args[1] if len(args) > 1 else resume_args.get("teachers", "eupe:vitb16")
@@ -90,7 +84,7 @@ def main(argv: list[str]) -> None:
         model.add_callback("on_train_start", grad_clip.override(r["grad_clip"]))
     if r["beta2"]:
         model.add_callback("on_train_start", beta2_override.override(r["beta2"]))
-    sync_start, sync_end = nfs_sync.setup(NFS_MIRROR_ROOT, interval_sec=SYNC_INTERVAL_SEC)
+    sync_start, sync_end = nfs_sync.setup(str(paths.NFS_MIRROR_ROOT), interval_sec=paths.SYNC_INTERVAL_SEC)
     model.add_callback("on_train_start", sync_start)
     model.add_callback("on_train_end", sync_end)
     model.add_callback(
@@ -116,8 +110,7 @@ def main(argv: list[str]) -> None:
         l1_weight=l1_weight,
         cls_l1=cls_l1,
         device=gpu,
-        project=LOCAL_PROJECT,
-        name=name,
+        **paths.run_paths(name),
         epochs=epochs or r["epochs"],
         batch=128,
         imgsz=224,
