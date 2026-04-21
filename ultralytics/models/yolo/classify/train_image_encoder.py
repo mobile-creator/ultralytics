@@ -174,20 +174,33 @@ class ImageEncoderTrainer(ClassificationTrainer):
 
     @staticmethod
     def _resolve_paths(data_path):
-        """Resolve a single data path to train/val paths based on directory layout."""
+        """Resolve a path to (train, val). val is None when no held-out val split is discoverable.
+
+        Order: WebDataset shards/ → COCO-style images/train2017 → ImageNet-style train/ →
+        swap the last `train` component of the path for `val` and use if that dir exists → None.
+        """
         p = Path(data_path)
         if (p / "shards").is_dir():
-            return str(p), str(p)
+            return str(p), None
         if (p / "images" / "train2017").is_dir():
-            return str(p / "images" / "train2017"), str(p / "images" / "val2017")
+            v = p / "images" / "val2017"
+            return str(p / "images" / "train2017"), (str(v) if v.is_dir() else None)
         if (p / "train").is_dir():
-            return str(p / "train"), str(p / "val")
-        return str(p), str(p)
+            v = p / "val"
+            return str(p / "train"), (str(v) if v.is_dir() else None)
+        parts = list(p.parts)
+        if "train" in parts:
+            i = len(parts) - 1 - parts[::-1].index("train")  # last occurrence
+            v = Path(*parts[:i], "val", *parts[i + 1 :])
+            if v.is_dir():
+                return str(p), str(v)
+        return str(p), None
 
     def get_dataset(self):
         """Build minimal data dict for distillation (no check_cls_dataset needed).
 
-        Auto-detect layout per path: shards/*.tar (WebDataset), images/train2017 (COCO), train/ (ImageNet), or flat.
+        Auto-detect layout per path: shards/*.tar (WebDataset), images/train2017 (COCO), train/ (ImageNet),
+        or flat; sources without a held-out val split are dropped from val to prevent train→val duplication.
         Supports comma-separated paths for combining ImageFolder datasets (no WebDataset mixing).
 
         Returns:
@@ -196,13 +209,20 @@ class ImageEncoderTrainer(ClassificationTrainer):
         paths = [p.strip() for p in str(self.args.data).split(",")]
         if len(paths) == 1:
             train_path, val_path = self._resolve_paths(paths[0])
+            if val_path is None:  # no held-out val → fall back to train so val loss is still tracked
+                val_path = train_path
         else:
             train_paths, val_paths = [], []
             for p in paths:
                 t, v = self._resolve_paths(p)
                 train_paths.append(t)
-                val_paths.append(v)
-            train_path, val_path = train_paths, val_paths
+                if v is not None:
+                    val_paths.append(v)
+            train_path = train_paths
+            if not val_paths:
+                LOGGER.warning("No held-out val splits across sources; val falls back to train (noisy)")
+                val_paths = train_paths
+            val_path = val_paths
         return {
             "train": train_path,
             "val": val_path,
