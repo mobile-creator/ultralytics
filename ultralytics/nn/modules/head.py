@@ -863,7 +863,7 @@ class DINOv2DPTHead(nn.Module):
         self.encoder_name = encoder_name
         self.max_depth = max_depth
 
-        self.model = DepthAnythingV2(encoder_name=encoder_name)
+        self.model = DepthAnythingV2(encoder_name=encoder_name, metric=True)
         self.model.encoder.requires_grad_(True)
 
         if pretrained:
@@ -897,7 +897,7 @@ class DINOv2DPTHead(nn.Module):
         if h14 != H or w14 != W:
             x = F.interpolate(x, (h14, w14), mode="bilinear", align_corners=False)
 
-        depth = self.model(x)  # (B, H, W), non-negative via relu
+        depth = self.model(x)  # (B, H, W), unbounded logits (metric=True)
         depth = depth.unsqueeze(1)  # (B, 1, H, W)
         depth = torch.sigmoid(depth) * self.max_depth
         if self.training:

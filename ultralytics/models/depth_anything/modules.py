@@ -61,10 +61,12 @@ class FeatureFusionBlock(nn.Module):
 class DPTHead(nn.Module):
     """Dense Prediction Transformer head for monocular depth estimation."""
 
-    def __init__(self, in_channels: int, features: int = 256, out_channels: list[int] | None = None):
+    def __init__(self, in_channels: int, features: int = 256, out_channels: list[int] | None = None,
+                 metric: bool = False):
         super().__init__()
         if out_channels is None:
             out_channels = [features // 4, features // 2, features, features]
+        self.metric = metric
 
         # Reassemble: project encoder features to out_channels
         self.projects = nn.ModuleList([
@@ -98,12 +100,23 @@ class DPTHead(nn.Module):
         head_features_1 = features
         head_features_2 = 32
         self.head_conv1 = nn.Conv2d(head_features_1, head_features_1 // 2, kernel_size=3, stride=1, padding=1)
-        self.head_conv2 = nn.Sequential(
-            nn.Conv2d(head_features_1 // 2, head_features_2, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(True),
-            nn.Conv2d(head_features_2, 1, kernel_size=1, stride=1, padding=0),
-            nn.ReLU(True),
-        )
+        final_conv = nn.Conv2d(head_features_2, 1, kernel_size=1, stride=1, padding=0)
+        if metric:
+            # Unbounded logits for sigmoid(x)*max_depth mapping. Bias = -2 so sigmoid(-2) ≈ 0.12,
+            # giving an initial output ≈ 0.12 * max_depth ≈ 1.2m for max_depth=10 — reasonable indoor start.
+            nn.init.constant_(final_conv.bias, -2.0)
+            self.head_conv2 = nn.Sequential(
+                nn.Conv2d(head_features_1 // 2, head_features_2, kernel_size=3, stride=1, padding=1),
+                nn.ReLU(True),
+                final_conv,
+            )
+        else:
+            self.head_conv2 = nn.Sequential(
+                nn.Conv2d(head_features_1 // 2, head_features_2, kernel_size=3, stride=1, padding=1),
+                nn.ReLU(True),
+                final_conv,
+                nn.ReLU(True),
+            )
 
     def forward(self, patch_h: int, patch_w: int, features: list[torch.Tensor]) -> torch.Tensor:
         """Forward pass.
@@ -154,11 +167,12 @@ class DepthAnythingV2(nn.Module):
                  "out_channels": [256, 512, 1024, 1024], "intermediate_layers": [4, 11, 17, 23]},
     }
 
-    def __init__(self, encoder_name: str = "vits"):
+    def __init__(self, encoder_name: str = "vits", metric: bool = False):
         super().__init__()
         cfg = self.CONFIGS[encoder_name]
         self.encoder_name = encoder_name
         self.intermediate_layers = cfg["intermediate_layers"]
+        self.metric = metric
 
         self.encoder = torch.hub.load(
             "facebookresearch/dinov2", cfg["encoder"], pretrained=False
@@ -169,6 +183,7 @@ class DepthAnythingV2(nn.Module):
             in_channels=cfg["embed_dim"],
             features=cfg["features"],
             out_channels=cfg["out_channels"],
+            metric=metric,
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -190,7 +205,9 @@ class DepthAnythingV2(nn.Module):
         features = [f[0] for f in features]
 
         depth = self.depth_head(patch_h, patch_w, features)
-        depth = F.relu(depth)
+        if not self.metric:
+            # Zero-shot relative depth path: clamp to non-negative before LS alignment.
+            depth = F.relu(depth)
 
         return depth.squeeze(1)  # (B, H, W)
 
